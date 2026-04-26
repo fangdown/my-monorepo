@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    branches: [main] # 当代码推送到 main 分支时触发
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 用于创建 Release PR 和提交标签
+      pull-requests: write # 用于创建 Release PR
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整历史，以便 Changesets 能正确判断变更
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org/"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 如果你的项目有构建步骤，在这里执行
+      - name: Build Packages
+        run: pnpm build # 确保我们在根 package.json 中定义了 build 脚本
+
+      - name: Create Release Pull Request or Publish
+        uses: changesets/action@v1
+        with:
+          version: pnpm version # 执行我们的自定义 version 脚本，用于更新版本和生成 changelog
+          publish: pnpm release # 执行我们的自定义 release 脚本，用于实际发布到 npm
+          commit: "chore: 版本发布"
+          title: "版本发布"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # npm 发布时需要的 token
