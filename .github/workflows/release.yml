@@ -4,6 +4,11 @@ on:
   push:
     branches: [main] # 当代码推送到 main 分支时触发
 
+permissions:
+  id-token: write # 必须，用于 npm Trusted Publishing
+  contents: write # 必须，用于创建 tag 和 release
+  pull-requests: write # 必须，用于创建 Version Packages PR
+
 jobs:
   release:
     runs-on: ubuntu-latest
